@@ -7,9 +7,12 @@ using System.Numerics;
 using Unity.VisualScripting;
 using UnityEngine.SceneManagement;
 
+//as a challenge, all of the code below is written in a way that allows for different dimensions to the table other
+//than 3x3 but I didn't implement the player changing the board dimensions in the settings for the purposes of this test
+
+
 public class GameManagerBehavior : MonoBehaviour
 {
-
     [SerializeField] GameObject gameboard;
     [SerializeField] TextMeshProUGUI scoreText;
     [SerializeField] GameObject restartButton;
@@ -50,17 +53,17 @@ public class GameManagerBehavior : MonoBehaviour
     }
     public void ClearBoard()
     {
-        playerGoesSecond = !playerGoesSecond;
         for(int i=0; i<numberOfRows; i++)
         {
             for(int j = 0; j<numberOfColumns; j++){
                 gameboard.transform.GetChild(i).GetChild(j).GetChild(0).GetChild(0).GetComponent<TextMeshProUGUI>().text = "";
             }
         }
-        if(!playerGoesSecond)
+        if(playerGoesSecond)
         {
             StartCoroutine(ComTurn(true));
-        }
+        }        
+        playerGoesSecond = !playerGoesSecond;//for next game
     }
 
     bool CheckIfBoardFull()
@@ -71,7 +74,7 @@ public class GameManagerBehavior : MonoBehaviour
                 if(gameboard.transform.GetChild(i).GetChild(j).GetChild(0).GetChild(0).GetComponent<TextMeshProUGUI>().text == "") return false;
             }
         }
-        print("Game End");
+        print("Game End");//no more moves left
         return true;
     }
 
@@ -212,6 +215,9 @@ public class GameManagerBehavior : MonoBehaviour
         squareToCheck.GetComponent<TextMeshProUGUI>().text = "O";
     }
 
+    //an original algorithm so that the bot plays optimally, thus being unable to lose
+    //constructed using the logic of avoiding grave mistakes first, making good moves second
+    //and polished after lots of playtesting
     void ComPlayPerfectly(bool firstTurn)
     {
         int targetSquareIndex;
@@ -229,7 +235,7 @@ public class GameManagerBehavior : MonoBehaviour
 
         }else
         {
-            int solutionIndex;
+            int solutionIndex;//used as a supporting variable, both for columns and rows
             string s;
             solutionIndex = CheckIfHorizontalWinIn1("O");
             if(solutionIndex!=-1)
@@ -276,6 +282,7 @@ public class GameManagerBehavior : MonoBehaviour
 
             if(ComPlayCenter()) return;
 
+            //trapping allows one player to have two options to win the game in one move, making their win unpreventable by the opponent
             //if player has the center and com has 2 corners with more corners available try to trap him
             if(numberOfRows==3 & numberOfColumns==3)
             {
@@ -294,6 +301,7 @@ public class GameManagerBehavior : MonoBehaviour
                 }
             }
 
+            //com prefers playing on squares that belong to the diagonals because I read they are more useful
             if(!CheckIfDiagonalFilled("l")||!CheckIfDiagonalFilled("r"))
             {
                 s = Random.Range(0,2)>0.5f?"l":"r";
@@ -315,6 +323,7 @@ public class GameManagerBehavior : MonoBehaviour
 
     int NumberOfCapturedCorners(string s)
     {
+        //manually checking each of the 4 corners
         int n = 0;
         n += gameboard.transform.GetChild(0).GetChild(0).GetChild(0).GetChild(0).GetComponent<TextMeshProUGUI>().text == s?1:0;
         n += gameboard.transform.GetChild(0).GetChild(numberOfColumns-1).GetChild(0).GetChild(0).GetComponent<TextMeshProUGUI>().text == s?1:0;
@@ -356,6 +365,7 @@ public class GameManagerBehavior : MonoBehaviour
         int horizontalAdjacentIndex, verticalAdjacentIndex;
         TextMeshProUGUI horizontalAdjacent, verticalAdjacent;
 
+        //com shouldn't choose a corner that's adjacent to any Xs
         foreach (UnityEngine.Vector2 v in cornerSquaresIndexes)
         {
             horizontalAdjacentIndex = v[1]+1==numberOfColumns?(int)v[1]-1:(int)v[1]+1;
@@ -471,6 +481,7 @@ public class GameManagerBehavior : MonoBehaviour
     {
         int repeats = Mathf.Min(numberOfRows,numberOfColumns);
         TextMeshProUGUI targetSquareText;
+        //in case of non-square boards there can be more than one diagonals with maximum length
         int rowshift = numberOfRows>numberOfColumns?shift:0;
         int columnshift = numberOfColumns>numberOfRows?shift:0;
 
@@ -557,6 +568,7 @@ public class GameManagerBehavior : MonoBehaviour
         int shift = Mathf.Abs(numberOfColumns-numberOfRows);
         int rowshift, columnshift;
 
+        //left diagonal
         for(int i=2; i<repeats; i++)
         {
             for(int k=0; k<=shift; k++)
@@ -579,7 +591,7 @@ public class GameManagerBehavior : MonoBehaviour
                 && gameboard.transform.GetChild(i+rowshift).GetChild(i+columnshift).GetChild(0).GetChild(0).GetComponent<TextMeshProUGUI>().text == "")
                     return "l"+k;
             }
-        }
+        }//right diagonal
         for(int i=repeats-1; i>1; i--)
         {
             for(int k=0; k<=shift; k++)
@@ -651,11 +663,12 @@ public class GameManagerBehavior : MonoBehaviour
         else yield return new WaitForSeconds(Random.Range(0.25f,1.05f));
 
         int d = PlayerPrefs.GetInt("GameDifficulty");
-
+        
+        //based on the difficulty level COM is more likely to play the best move each turn instead of playing randomly
+        //with the final difficulty level being unbeatable and the first one being completely random
         if(d==0)
             ComPlayRandomMove();
         else if(Random.Range(0,4)<d)
-            //based on the difficulty level COM is more likely to play the best move instead of playing randomly
             ComPlayPerfectly(firstTurn);
         else
             ComPlayRandomMove();
